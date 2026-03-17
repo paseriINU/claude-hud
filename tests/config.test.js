@@ -229,8 +229,8 @@ test('mergeConfig falls back to default when elementOrder is empty or invalid', 
 
 test('mergeConfig defaults usage to expected values', () => {
   const config = mergeConfig({});
-  assert.equal(config.usage.cacheTtlSeconds, 60);
-  assert.equal(config.usage.failureCacheTtlSeconds, 15);
+  assert.equal(config.usage.cacheTtlSeconds, 300);
+  assert.equal(config.usage.failureCacheTtlSeconds, 60);
 });
 
 test('mergeConfig defaults colors to expected semantic palette', () => {

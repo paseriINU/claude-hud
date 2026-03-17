@@ -46,10 +46,10 @@ interface UsageApiResult {
 
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 5 * 60_000; // 5 minutes — matches Anthropic usage API rate limit window
-const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
-const CACHE_RATE_LIMITED_BASE_MS = 60_000; // 60s base for 429 backoff
-const CACHE_RATE_LIMITED_MAX_MS = 5 * 60_000; // 5 min max backoff
-const CACHE_LOCK_STALE_MS = 30_000;
+const CACHE_FAILURE_TTL_MS = 60_000; // 60 seconds for failed requests (was 15s)
+const CACHE_RATE_LIMITED_BASE_MS = 120_000; // 120s base for 429 backoff (was 60s)
+const CACHE_RATE_LIMITED_MAX_MS = 15 * 60_000; // 15 min max backoff (was 5 min)
+const CACHE_LOCK_STALE_MS = 45_000; // API timeout (15s) + 30s margin (was 30s)
 const CACHE_LOCK_WAIT_MS = 2_000;
 const CACHE_LOCK_POLL_MS = 50;
 const KEYCHAIN_TIMEOUT_MS = 3000;

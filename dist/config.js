@@ -44,8 +44,8 @@ export const DEFAULT_CONFIG = {
         environmentThreshold: 0,
     },
     usage: {
-        cacheTtlSeconds: 60,
-        failureCacheTtlSeconds: 15,
+        cacheTtlSeconds: 300, // 5 minutes (was 60s) — reduces 429 in multi-session environments
+        failureCacheTtlSeconds: 60, // 60 seconds (was 15s)
     },
     colors: {
         context: 'green',

@@ -600,7 +600,7 @@ describe('getUsage', () => {
     assert.equal(first?.apiError, 'http-401');
     assert.equal(fetchCalls, 1);
 
-    nowValue += 10_000;
+    nowValue += 30_000; // 30s — still within 60s failure TTL
     const cached = await getUsage({
       homeDir: () => tempHome,
       fetchApi,
@@ -611,7 +611,7 @@ describe('getUsage', () => {
     assert.equal(cached?.apiError, 'http-401');
     assert.equal(fetchCalls, 1);
 
-    nowValue += 6_000;
+    nowValue += 31_000; // total 61s — past 60s failure TTL
     const second = await getUsage({
       homeDir: () => tempHome,
       fetchApi,
@@ -1040,7 +1040,7 @@ describe('getUsage caching behavior', { concurrency: false }, () => {
     assert.equal(fetchCalls, 2);
   });
 
-  test('cache expires after 15 seconds for failures', async () => {
+  test('cache expires after 60 seconds for failures', async () => {
     await writeCredentials(cacheTempHome, buildCredentials());
     let fetchCalls = 0;
     let nowValue = 1000;
@@ -1052,11 +1052,11 @@ describe('getUsage caching behavior', { concurrency: false }, () => {
     await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
-    nowValue += 10_000;
+    nowValue += 30_000; // 30s — still within 60s failure TTL
     await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
-    nowValue += 6_000;
+    nowValue += 31_000; // total 61s — past 60s failure TTL
     await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
