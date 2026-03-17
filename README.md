@@ -2,6 +2,8 @@
 
 A Claude Code plugin that shows what's happening — context usage, active tools, running agents, and todo progress. Always visible below your input.
 
+> Based on [claude-hud](https://github.com/jarrodwatts/claude-hud) by Jarrod Watts. This fork improves multi-session stability by extending cache TTL and strengthening 429 backoff.
+
 [![License](https://img.shields.io/github/license/jarrodwatts/claude-hud?v=2)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/jarrodwatts/claude-hud)](https://github.com/jarrodwatts/claude-hud/stargazers)
 
