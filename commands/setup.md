@@ -106,7 +106,9 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 1. Get plugin path (sorted by dotted numeric version, not modification time):
    ```bash
-   ls -d "$HOME"/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '{ print $(NF-1) "\t" $0 }' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-
+   PLUGIN_BASE="$HOME/.claude/plugins/cache/claude-hud/claude-hud"
+   PLUGIN_VERSION=$(ls "$PLUGIN_BASE" 2>/dev/null | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1)
+   echo "$PLUGIN_BASE/$PLUGIN_VERSION/"
    ```
    If empty, the plugin is not installed. Go back to Step 0 to check for ghost installation or EXDEV issues. If Step 0 was clean, tell user to install via `/plugin install claude-hud` first.
 
@@ -129,9 +131,9 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
    ```
    If result is "bun", use `src/index.ts` (bun has native TypeScript support). Otherwise use `dist/index.js` (pre-compiled).
 
-5. Generate command (quotes around runtime path handle spaces):
+5. Generate command (dynamically resolves latest version at runtime, no awk needed):
    ```
-   bash -c 'plugin_dir=$(ls -d "$HOME"/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $0 }'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
+   bash -c 'ver=$(ls "$HOME/.claude/plugins/cache/claude-hud/claude-hud" 2>/dev/null | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1); exec "{RUNTIME_PATH}" "$HOME/.claude/plugins/cache/claude-hud/claude-hud/$ver/{SOURCE}"'
    ```
 
 **Windows** (Platform: `win32`):
