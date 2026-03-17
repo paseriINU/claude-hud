@@ -1,39 +1,38 @@
 # Claude HUD
 
-A Claude Code plugin that shows what's happening — context usage, active tools, running agents, and todo progress. Always visible below your input.
+Claude Code のステータスラインプラグイン。コンテキスト使用量、アクティブツール、エージェント、Todo進捗をリアルタイム表示。
 
-> Based on [claude-hud](https://github.com/jarrodwatts/claude-hud) by Jarrod Watts. This fork improves multi-session stability by extending cache TTL and strengthening 429 backoff.
+> [jarrodwatts/claude-hud](https://github.com/jarrodwatts/claude-hud) のフォーク。マルチセッション環境でのキャッシュTTL延長と429バックオフ強化により安定性を改善。
 
-[![License](https://img.shields.io/github/license/jarrodwatts/claude-hud?v=2)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/jarrodwatts/claude-hud)](https://github.com/jarrodwatts/claude-hud/stargazers)
+[![License](https://img.shields.io/github/license/paseriINU/claude-hud)](LICENSE)
 
 ![Claude HUD in action](claude-hud-preview-5-2.png)
 
-## Install
+## インストール
 
-Inside a Claude Code instance, run the following commands:
+Claude Code内で以下のコマンドを実行:
 
-**Step 1: Add the marketplace**
+**Step 1: マーケットプレイスを追加**
 ```
-/plugin marketplace add jarrodwatts/claude-hud
+/plugin marketplace add paseriINU/claude-hud
 ```
 
-**Step 2: Install the plugin**
+**Step 2: プラグインをインストール**
 
 <details>
-<summary><strong>⚠️ Linux users: Click here first</strong></summary>
+<summary><strong>Linux環境の場合（クリックして展開）</strong></summary>
 
-On Linux, `/tmp` is often a separate filesystem (tmpfs), which causes plugin installation to fail with:
+Linuxでは `/tmp` が別のファイルシステム(tmpfs)であることが多く、インストールに失敗する場合がある:
 ```
 EXDEV: cross-device link not permitted
 ```
 
-**Fix**: Set TMPDIR before installing:
+**対処法**: インストール前にTMPDIRを設定:
 ```bash
 mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude
 ```
 
-Then run the install command below in that session. This is a [Claude Code platform limitation](https://github.com/anthropics/claude-code/issues/14799).
+そのセッションで以下のインストールコマンドを実行する。
 
 </details>
 
@@ -41,246 +40,153 @@ Then run the install command below in that session. This is a [Claude Code platf
 /plugin install claude-hud
 ```
 
-**Step 3: Configure the statusline**
+**Step 3: ステータスラインを設定**
 ```
 /claude-hud:setup
 ```
 
-Done! The HUD appears immediately — no restart needed.
+設定完了。再起動不要ですぐに表示される。
 
 ---
 
-## What is Claude HUD?
+## フォークの変更点
 
-Claude HUD gives you better insights into what's happening in your Claude Code session.
+元リポジトリからの変更:
 
-| What You See | Why It Matters |
-|--------------|----------------|
-| **Project path** | Know which project you're in (configurable 1-3 directory levels) |
-| **Context health** | Know exactly how full your context window is before it's too late |
-| **Tool activity** | Watch Claude read, edit, and search files as it happens |
-| **Agent tracking** | See which subagents are running and what they're doing |
-| **Todo progress** | Track task completion in real-time |
+| 変更 | 元の値 | フォーク |
+|------|--------|---------|
+| 成功キャッシュTTL | 60秒 | 300秒 (5分) |
+| 失敗キャッシュTTL | 15秒 | 60秒 |
+| ロックstale判定 | 30秒 | 45秒 |
+| 429バックオフ初期値 | 60秒 | 120秒 |
+| 429バックオフ最大値 | 5分 | 15分 |
 
-## What You See
+tmuxで複数Claude Codeセッションを並走させた際の429エラーを大幅に削減する。
 
-### Default (2 lines)
+---
+
+## 機能
+
+| 表示項目 | 説明 |
+|---------|------|
+| **プロジェクトパス** | 作業中のプロジェクト名 (1-3階層で設定可) |
+| **コンテキスト使用量** | コンテキストウィンドウの使用率をバーで表示 |
+| **ツールアクティビティ** | ファイル読み書き・検索の実行状況 |
+| **エージェント追跡** | サブエージェントの実行状況 |
+| **Todo進捗** | タスク完了状況のリアルタイム追跡 |
+
+### 表示例
+
+**デフォルト (2行)**
 ```
 [Opus | Max] │ my-project git:(main*)
 Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
 ```
-- **Line 1** — Model, plan name (or `Bedrock`), project path, git branch
-- **Line 2** — Context bar (green → yellow → red) and usage rate limits
 
-### Optional lines (enable via `/claude-hud:configure`)
+**オプション行 (`/claude-hud:configure` で有効化)**
 ```
-◐ Edit: auth.ts | ✓ Read ×3 | ✓ Grep ×2        ← Tools activity
-◐ explore [haiku]: Finding auth code (2m 15s)    ← Agent status
-▸ Fix authentication bug (2/5)                   ← Todo progress
+◐ Edit: auth.ts | ✓ Read ×3 | ✓ Grep ×2        ← ツール
+◐ explore [haiku]: Finding auth code (2m 15s)    ← エージェント
+▸ Fix authentication bug (2/5)                   ← Todo
 ```
 
 ---
 
-## How It Works
-
-Claude HUD uses Claude Code's native **statusline API** — no separate window, no tmux required, works in any terminal.
-
-```
-Claude Code → stdin JSON → claude-hud → stdout → displayed in your terminal
-           ↘ transcript JSONL (tools, agents, todos)
-```
-
-**Key features:**
-- Native token data from Claude Code (not estimated)
-- Scales with Claude Code's reported context window size, including newer 1M-context sessions
-- Parses the transcript for tool/agent activity
-- Updates every ~300ms
-
----
-
-## Configuration
-
-Customize your HUD anytime:
+## 設定
 
 ```
 /claude-hud:configure
 ```
 
-The guided flow handles layout and display toggles. Advanced overrides such as
-custom colors and thresholds are preserved there, but you set them by editing the config file directly:
+ガイド付きフローでレイアウトと表示項目を設定できる。
 
-- **First time setup**: Choose a preset (Full/Essential/Minimal), then fine-tune individual elements
-- **Customize anytime**: Toggle items on/off, adjust git display style, switch layouts
-- **Preview before saving**: See exactly how your HUD will look before committing changes
+### プリセット
 
-### Presets
+| プリセット | 内容 |
+|-----------|------|
+| **Full** | 全項目表示 |
+| **Essential** | アクティビティ + Git状態 |
+| **Minimal** | モデル名とコンテキストバーのみ |
 
-| Preset | What's Shown |
-|--------|--------------|
-| **Full** | Everything enabled — tools, agents, todos, git, usage, duration |
-| **Essential** | Activity lines + git status, minimal info clutter |
-| **Minimal** | Core only — just model name and context bar |
+### 手動設定
 
-After choosing a preset, you can turn individual elements on or off.
-
-### Manual Configuration
-
-Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings such as `colors.*`,
-`pathLevels`, and threshold overrides. Running `/claude-hud:configure` preserves those manual settings.
-
-### Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `lineLayout` | string | `expanded` | Layout: `expanded` (multi-line) or `compact` (single line) |
-| `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
-| `elementOrder` | string[] | `["project","context","usage","environment","tools","agents","todos"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. |
-| `gitStatus.enabled` | boolean | true | Show git branch in HUD |
-| `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
-| `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
-| `gitStatus.showFileStats` | boolean | false | Show file change counts `!M +A ✘D ?U` |
-| `display.showModel` | boolean | true | Show model name `[Opus]` |
-| `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
-| `display.contextValue` | `percent` \| `tokens` \| `remaining` | `percent` | Context display format (`45%`, `45k/200k`, or `55%` remaining) |
-| `display.showConfigCounts` | boolean | false | Show CLAUDE.md, rules, MCPs, hooks counts |
-| `display.showDuration` | boolean | false | Show session duration `⏱️ 5m` |
-| `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
-| `display.showUsage` | boolean | true | Show usage limits (Pro/Max/Team only) |
-| `display.usageBarEnabled` | boolean | true | Display usage as visual bar instead of text |
-| `display.sevenDayThreshold` | 0-100 | 80 | Show 7-day usage when >= threshold (0 = always) |
-| `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
-| `display.showTools` | boolean | false | Show tools activity line |
-| `display.showAgents` | boolean | false | Show agents activity line |
-| `display.showTodos` | boolean | false | Show todos progress line |
-| `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
-| `usage.cacheTtlSeconds` | number | 60 | How long (seconds) to cache a successful usage API response |
-| `usage.failureCacheTtlSeconds` | number | 15 | How long (seconds) to cache a failed usage API response before retrying |
-| `colors.context` | color name | `green` | Base color for the context bar and context percentage |
-| `colors.usage` | color name | `brightBlue` | Base color for usage bars and percentages below warning thresholds |
-| `colors.warning` | color name | `yellow` | Warning color for context thresholds and usage warning text |
-| `colors.usageWarning` | color name | `brightMagenta` | Warning color for usage bars and percentages near their threshold |
-| `colors.critical` | color name | `red` | Critical color for limit-reached states and critical thresholds |
-
-Supported color names: `red`, `green`, `yellow`, `magenta`, `cyan`, `brightBlue`, `brightMagenta`.
-
-### Usage Limits (Pro/Max/Team)
-
-Usage display is **enabled by default** for Claude Pro, Max, and Team subscribers. It shows your rate limit consumption on line 2 alongside the context bar.
-
-The 7-day percentage appears when above the `display.sevenDayThreshold` (default 80%):
-
-```
-Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h) | ██████████ 85% (2d / 7d)
-```
-
-To disable, set `display.showUsage` to `false`.
-
-**Requirements:**
-- Claude Pro, Max, or Team subscription (not available for API users)
-- OAuth credentials from Claude Code (created automatically when you log in)
-
-**Troubleshooting:** If usage doesn't appear:
-- Ensure you're logged in with a Pro/Max/Team account (not API key)
-- Check `display.showUsage` is not set to `false` in config
-- API users see no usage display (they have pay-per-token, not rate limits)
-- AWS Bedrock models display `Bedrock` and hide usage limits (usage is managed in AWS)
-- Non-default `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_BASE_URL` settings skip usage display, because the Anthropic OAuth usage API may not apply
-- If you are behind a proxy, set `HTTPS_PROXY` (or `HTTP_PROXY`/`ALL_PROXY`) and optional `NO_PROXY`
-- For high-latency environments, increase usage API timeout with `CLAUDE_HUD_USAGE_TIMEOUT_MS` (milliseconds)
-
-### Example Configuration
+`~/.claude/plugins/claude-hud/config.json` を直接編集:
 
 ```json
 {
   "lineLayout": "expanded",
   "pathLevels": 2,
-  "elementOrder": ["project", "tools", "context", "usage", "environment", "agents", "todos"],
   "gitStatus": {
     "enabled": true,
     "showDirty": true,
-    "showAheadBehind": true,
-    "showFileStats": true
+    "showAheadBehind": true
   },
   "display": {
     "showTools": true,
     "showAgents": true,
     "showTodos": true,
-    "showConfigCounts": true,
     "showDuration": true
   },
-  "colors": {
-    "context": "cyan",
-    "usage": "cyan",
-    "warning": "yellow",
-    "usageWarning": "magenta",
-    "critical": "red"
-  },
   "usage": {
-    "cacheTtlSeconds": 120,
-    "failureCacheTtlSeconds": 30
+    "cacheTtlSeconds": 300,
+    "failureCacheTtlSeconds": 60
   }
 }
 ```
 
-### Display Examples
+### 設定項目
 
-**1 level (default):** `[Opus] │ my-project git:(main)`
-
-**2 levels:** `[Opus] │ apps/my-project git:(main)`
-
-**3 levels:** `[Opus] │ dev/apps/my-project git:(main)`
-
-**With dirty indicator:** `[Opus] │ my-project git:(main*)`
-
-**With ahead/behind:** `[Opus] │ my-project git:(main ↑2 ↓1)`
-
-**With file stats:** `[Opus] │ my-project git:(main* !3 +1 ?2)`
-- `!` = modified files, `+` = added/staged, `✘` = deleted, `?` = untracked
-- Counts of 0 are omitted for cleaner display
-
-### Troubleshooting
-
-**Config not applying?**
-- Check for JSON syntax errors: invalid JSON silently falls back to defaults
-- Ensure valid values: `pathLevels` must be 1, 2, or 3; `lineLayout` must be `expanded` or `compact`
-- Delete config and run `/claude-hud:configure` to regenerate
-
-**Git status missing?**
-- Verify you're in a git repository
-- Check `gitStatus.enabled` is not `false` in config
-
-**Tool/agent/todo lines missing?**
-- These are hidden by default — enable with `showTools`, `showAgents`, `showTodos` in config
-- They also only appear when there's activity to show
+| オプション | 型 | デフォルト | 説明 |
+|-----------|------|---------|------|
+| `lineLayout` | string | `expanded` | `expanded` (複数行) / `compact` (1行) |
+| `pathLevels` | 1-3 | 1 | プロジェクトパスの表示階層数 |
+| `gitStatus.enabled` | boolean | true | Gitブランチ表示 |
+| `gitStatus.showDirty` | boolean | true | 未コミット変更の `*` 表示 |
+| `gitStatus.showAheadBehind` | boolean | false | `↑N ↓N` 表示 |
+| `gitStatus.showFileStats` | boolean | false | ファイル変更数 `!M +A ✘D ?U` |
+| `display.showModel` | boolean | true | モデル名表示 |
+| `display.showContextBar` | boolean | true | コンテキストバー表示 |
+| `display.contextValue` | string | `percent` | `percent` / `tokens` / `remaining` |
+| `display.showUsage` | boolean | true | 使用量制限表示 (Pro/Max/Teamのみ) |
+| `display.showTools` | boolean | false | ツールアクティビティ行 |
+| `display.showAgents` | boolean | false | エージェント行 |
+| `display.showTodos` | boolean | false | Todo進捗行 |
+| `display.showDuration` | boolean | false | セッション経過時間 |
+| `display.showSpeed` | boolean | false | 出力トークン速度 |
+| `usage.cacheTtlSeconds` | number | 300 | 成功時キャッシュTTL (秒) |
+| `usage.failureCacheTtlSeconds` | number | 60 | 失敗時キャッシュTTL (秒) |
 
 ---
 
-## Requirements
-
-- Claude Code v1.0.80+
-- Node.js 18+ or Bun
-
----
-
-## Development
+## 上流の更新を取り込む
 
 ```bash
-git clone https://github.com/jarrodwatts/claude-hud
+git fetch upstream
+git merge upstream/main
+```
+
+---
+
+## 動作要件
+
+- Claude Code v1.0.80+
+- Node.js 18+
+
+---
+
+## 開発
+
+```bash
+git clone https://github.com/paseriINU/claude-hud
 cd claude-hud
 npm ci && npm run build
 npm test
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+元リポジトリの貢献ガイドライン: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 
-## License
+## ライセンス
 
-MIT — see [LICENSE](LICENSE)
-
----
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=jarrodwatts/claude-hud&type=Date)](https://star-history.com/#jarrodwatts/claude-hud&Date)
+MIT — [LICENSE](LICENSE)
