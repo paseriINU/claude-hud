@@ -55,6 +55,7 @@ const CACHE_LOCK_POLL_MS = 50;
 const KEYCHAIN_TIMEOUT_MS = 3000;
 const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
 const USAGE_API_TIMEOUT_MS_DEFAULT = 15_000;
+const SWR_TIMEOUT_MS = 500;
 export const USAGE_API_USER_AGENT = 'claude-code/2.1';
 
 /**
@@ -387,97 +388,109 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   }
   holdsCacheLock = lockStatus === 'acquired';
 
-  try {
-    const refreshedCache = readCache(homeDir, deps.now(), deps.ttls);
-    if (refreshedCache) {
-      return refreshedCache;
-    }
-
-    const credentials = readCredentials(homeDir, now, deps.readKeychain);
-    if (!credentials) {
-      return null;
-    }
-
-    const { accessToken, subscriptionType } = credentials;
-
-    // Determine plan name from subscriptionType
-    const planName = getPlanName(subscriptionType);
-    if (!planName) {
-      // API user, no usage limits to show
-      return null;
-    }
-
-    // Fetch usage from API
-    const apiResult = await deps.fetchApi(accessToken);
-    if (!apiResult.data) {
-      const isRateLimited = apiResult.error === 'rate-limited';
-      const prevCount = readRateLimitedCount(homeDir);
-      const rateLimitedCount = isRateLimited ? prevCount + 1 : 0;
-      const retryAfterUntil = isRateLimited && apiResult.retryAfterSec
-        ? now + apiResult.retryAfterSec * 1000
-        : undefined;
-      const backoffOpts: WriteCacheOpts = {
-        rateLimitedCount: isRateLimited ? rateLimitedCount : undefined,
-        retryAfterUntil,
-      };
-
-      const failureResult: UsageData = {
-        planName,
-        fiveHour: null,
-        sevenDay: null,
-        fiveHourResetAt: null,
-        sevenDayResetAt: null,
-        apiUnavailable: true,
-        apiError: apiResult.error,
-      };
-
-      if (isRateLimited) {
-        const staleCache = readCacheState(homeDir, now, deps.ttls);
-        const lastGood = readLastGoodData(homeDir);
-        const goodData = (staleCache && !staleCache.data.apiUnavailable)
-          ? staleCache.data
-          : lastGood;
-
-        if (goodData) {
-          // Preserve the backoff state in cache, but keep rendering the last successful values
-          // with a syncing hint so stale data is visible to the user.
-          writeCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
-          return withRateLimitedSyncing(goodData);
-        }
+  const fetchPromise = (async () => {
+    try {
+      const refreshedCache = readCache(homeDir, deps.now(), deps.ttls);
+      if (refreshedCache) {
+        return refreshedCache;
       }
 
-      writeCache(homeDir, failureResult, now, backoffOpts);
-      return failureResult;
+      const credentials = readCredentials(homeDir, now, deps.readKeychain);
+      if (!credentials) {
+        return null;
+      }
+
+      const { accessToken, subscriptionType } = credentials;
+
+      // Determine plan name from subscriptionType
+      const planName = getPlanName(subscriptionType);
+      if (!planName) {
+        // API user, no usage limits to show
+        return null;
+      }
+
+      // Fetch usage from API
+      const apiResult = await deps.fetchApi(accessToken);
+      if (!apiResult.data) {
+        const isRateLimited = apiResult.error === 'rate-limited';
+        const prevCount = readRateLimitedCount(homeDir);
+        const rateLimitedCount = isRateLimited ? prevCount + 1 : 0;
+        const retryAfterUntil = isRateLimited && apiResult.retryAfterSec
+          ? now + apiResult.retryAfterSec * 1000
+          : undefined;
+        const backoffOpts: WriteCacheOpts = {
+          rateLimitedCount: isRateLimited ? rateLimitedCount : undefined,
+          retryAfterUntil,
+        };
+
+        const failureResult: UsageData = {
+          planName,
+          fiveHour: null,
+          sevenDay: null,
+          fiveHourResetAt: null,
+          sevenDayResetAt: null,
+          apiUnavailable: true,
+          apiError: apiResult.error,
+        };
+
+        if (isRateLimited) {
+          const staleCache = readCacheState(homeDir, now, deps.ttls);
+          const lastGood = readLastGoodData(homeDir);
+          const goodData = (staleCache && !staleCache.data.apiUnavailable)
+            ? staleCache.data
+            : lastGood;
+
+          if (goodData) {
+            // Preserve the backoff state in cache, but keep rendering the last successful values
+            // with a syncing hint so stale data is visible to the user.
+            writeCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
+            return withRateLimitedSyncing(goodData);
+          }
+        }
+
+        writeCache(homeDir, failureResult, now, backoffOpts);
+        return failureResult;
+      }
+
+      // Parse response - API returns 0-100 percentage directly
+      // Clamp to 0-100 and handle NaN/Infinity
+      const fiveHour = parseUtilization(apiResult.data.five_hour?.utilization);
+      const sevenDay = parseUtilization(apiResult.data.seven_day?.utilization);
+
+      const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
+      const sevenDayResetAt = parseDate(apiResult.data.seven_day?.resets_at);
+
+      const result: UsageData = {
+        planName,
+        fiveHour,
+        sevenDay,
+        fiveHourResetAt,
+        sevenDayResetAt,
+      };
+
+      // Write to file cache — also store as lastGoodData for rate-limit resilience
+      writeCache(homeDir, result, now, { lastGoodData: result });
+
+      return result;
+    } catch (error) {
+      debug('getUsage fetch failed:', error);
+      return null;
+    } finally {
+      if (holdsCacheLock) {
+        releaseCacheLock(homeDir);
+      }
     }
+  })();
 
-    // Parse response - API returns 0-100 percentage directly
-    // Clamp to 0-100 and handle NaN/Infinity
-    const fiveHour = parseUtilization(apiResult.data.five_hour?.utilization);
-    const sevenDay = parseUtilization(apiResult.data.seven_day?.utilization);
-
-    const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
-    const sevenDayResetAt = parseDate(apiResult.data.seven_day?.resets_at);
-
-    const result: UsageData = {
-      planName,
-      fiveHour,
-      sevenDay,
-      fiveHourResetAt,
-      sevenDayResetAt,
-    };
-
-    // Write to file cache — also store as lastGoodData for rate-limit resilience
-    writeCache(homeDir, result, now, { lastGoodData: result });
-
-    return result;
-  } catch (error) {
-    debug('getUsage failed:', error);
-    return null;
-  } finally {
-    if (holdsCacheLock) {
-      releaseCacheLock(homeDir);
-    }
+  // Stale-while-revalidate: if we have stale non-error data, race the fetch against a timeout
+  if (cacheState && !cacheState.data.apiUnavailable) {
+    const timeoutPromise = new Promise<UsageData | null>((resolve) =>
+      setTimeout(() => resolve(cacheState.data), SWR_TIMEOUT_MS)
+    );
+    return Promise.race([fetchPromise, timeoutPromise]);
   }
+
+  return fetchPromise;
 }
 
 /**
