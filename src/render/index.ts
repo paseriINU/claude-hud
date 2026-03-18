@@ -412,11 +412,12 @@ export function render(ctx: RenderContext): void {
   const lineLayout = ctx.config?.lineLayout ?? 'expanded';
   const showSeparators = ctx.config?.showSeparators ?? false;
   const terminalWidth = getTerminalWidth();
+  const enrichedCtx: RenderContext = { ...ctx, terminalWidth };
 
   let lines: string[];
 
   if (lineLayout === 'expanded') {
-    const renderedLines = renderExpanded(ctx);
+    const renderedLines = renderExpanded(enrichedCtx);
     lines = renderedLines.map(({ line }) => line);
 
     if (showSeparators) {
@@ -435,8 +436,8 @@ export function render(ctx: RenderContext): void {
       }
     }
   } else {
-    const headerLines = renderCompact(ctx);
-    const activityLines = collectActivityLines(ctx);
+    const headerLines = renderCompact(enrichedCtx);
+    const activityLines = collectActivityLines(enrichedCtx);
     lines = [...headerLines];
 
     if (showSeparators && activityLines.length > 0) {

@@ -23,6 +23,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   const colors = ctx.config?.colors;
+  const narrowTerminal = ctx.terminalWidth != null && ctx.terminalWidth < 60;
   const bar = coloredBar(percent, 10, colors);
 
   const parts: string[] = [];
@@ -41,11 +42,12 @@ export function renderSessionLine(ctx: RenderContext): string {
   const planDisplay = providerLabel ?? billingLabel;
   const modelDisplay = planDisplay ? `${model} | ${planDisplay}` : model;
 
-  if (display?.showModel !== false && display?.showContextBar !== false) {
+  const showContextBar = display?.showContextBar !== false && !narrowTerminal;
+  if (display?.showModel !== false && showContextBar) {
     parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}`);
   } else if (display?.showModel !== false) {
     parts.push(`${cyan(`[${modelDisplay}]`)} ${contextValueDisplay}`);
-  } else if (display?.showContextBar !== false) {
+  } else if (showContextBar) {
     parts.push(`${bar} ${contextValueDisplay}`);
   } else {
     parts.push(contextValueDisplay);
@@ -161,7 +163,7 @@ export function renderSessionLine(ctx: RenderContext): string {
         const fiveHourDisplay = formatUsagePercent(fiveHour, colors);
         const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
 
-        const usageBarEnabled = display?.usageBarEnabled ?? true;
+        const usageBarEnabled = narrowTerminal ? false : (display?.usageBarEnabled ?? true);
         const fiveHourPart = usageBarEnabled
           ? (fiveHourReset
               ? `${quotaBar(fiveHour ?? 0, 10, colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`

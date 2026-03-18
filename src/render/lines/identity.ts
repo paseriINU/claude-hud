@@ -21,7 +21,8 @@ export function renderIdentityLine(ctx: RenderContext): string {
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
 
-  let line = display?.showContextBar !== false
+  const narrowTerminal = ctx.terminalWidth != null && ctx.terminalWidth < 60;
+  let line = (display?.showContextBar !== false && !narrowTerminal)
     ? `${dim('Context')} ${coloredBar(percent, 10, colors)} ${contextValueDisplay}`
     : `${dim('Context')} ${contextValueDisplay}`;
 

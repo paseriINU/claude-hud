@@ -45,7 +45,8 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   const fiveHourDisplay = formatUsagePercent(ctx.usageData.fiveHour, colors);
   const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
 
-  const usageBarEnabled = display?.usageBarEnabled ?? true;
+  const narrowTerminal = ctx.terminalWidth != null && ctx.terminalWidth < 60;
+  const usageBarEnabled = narrowTerminal ? false : (display?.usageBarEnabled ?? true);
   const fiveHourPart = usageBarEnabled
     ? (fiveHourReset
         ? `${quotaBar(fiveHour ?? 0, 10, colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
